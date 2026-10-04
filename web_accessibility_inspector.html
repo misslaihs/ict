@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HKDSE Web Accessibility Inspector</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['Fira Code', 'monospace'],
+          },
+          colors: {
+            dse: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Screen simulation bad focus state */
+    .bad-mode *:focus {
+      outline: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Accessible mode focus indicator */
+    .accessible-mode *:focus-visible {
+      outline: 3px solid #0284c7 !important;
+      outline-offset: 2px !important;
+    }
+
+    /* Color Palette Themes for Accessible Mode */
+    .theme-default {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+    }
+    .theme-default .card-bg { background-color: #f8fafc !important; border-color: #e2e8f0 !important; }
+    .theme-default .text-main { color: #0f172a !important; }
+    .theme-default .text-sub { color: #475569 !important; }
+    .theme-default .accent-bg { background-color: #0369a1 !important; color: #ffffff !important; }
+    .theme-default .input-style { background-color: #ffffff !important; color: #0f172a !important; border-color: #cbd5e1 !important; }
+
+    .theme-dark {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+    .theme-dark .card-bg { background-color: #1e293b !important; border-color: #334155 !important; }
+    .theme-dark .text-main { color: #f8fafc !important; }
+    .theme-dark .text-sub { color: #cbd5e1 !important; }
+    .theme-dark .accent-bg { background-color: #38bdf8 !important; color: #0f172a !important; }
+    .theme-dark .input-style { background-color: #1e293b !important; color: #f8fafc !important; border-color: #475569 !important; }
+
+    .theme-yellow-black {
+      background-color: #000000 !important;
+      color: #ffff00 !important;
+    }
+    .theme-yellow-black .card-bg { background-color: #111111 !important; border-color: #ffff00 !important; }
+    .theme-yellow-black .text-main { color: #ffff00 !important; }
+    .theme-yellow-black .text-sub { color: #ffffa0 !important; }
+    .theme-yellow-black .accent-bg { background-color: #ffff00 !important; color: #000000 !important; font-weight: bold !important; }
+    .theme-yellow-black .input-style { background-color: #000000 !important; color: #ffff00 !important; border-color: #ffff00 !important; }
+
+    .theme-sepia {
+      background-color: #fbf0d9 !important;
+      color: #433422 !important;
+    }
+    .theme-sepia .card-bg { background-color: #f3e5c8 !important; border-color: #d7c4a3 !important; }
+    .theme-sepia .text-main { color: #2b1d0c !important; }
+    .theme-sepia .text-sub { color: #5f4b32 !important; }
+    .theme-sepia .accent-bg { background-color: #795221 !important; color: #ffffff !important; }
+    .theme-sepia .input-style { background-color: #fbf0d9 !important; color: #2b1d0c !important; border-color: #bc9f78 !important; }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans overflow-hidden bg-slate-950 text-slate-100">
+
+  <header class="h-16 bg-slate-900 border-b border-slate-800 px-4 lg:px-6 flex items-center justify-between shrink-0 z-30">
+    <div class="flex items-center space-x-3">
+      <div class="bg-dse-600 text-white p-2 rounded-lg font-bold text-lg flex items-center justify-center h-10 w-10 shadow-lg shadow-dse-600/30">
+        <i class="fa-solid font-mono text-xl">DSE</i>
+      </div>
+      <div>
+        <h1 class="font-bold text-base md:text-lg tracking-tight text-white flex items-center gap-2">
+          HKDSE Web Accessibility Inspector
+        </h1>
+        <p class="text-xs text-slate-400 hidden sm:block">Demonstrating Inaccessible vs. Accessible Web Page Design</p>
+      </div>
+    </div>
+
+    <!-- View Mode Switch (Inaccessible vs Accessible) -->
+    <div class="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center">
+      <button id="btnBadMode" onclick="setMode('bad')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-red-500/20 text-red-400 border border-red-500/40 shadow">
+        <i class="fa-solid fa-circle-xmark"></i> Inaccessible
+      </button>
+      <button id="btnGoodMode" onclick="setMode('good')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200">
+        <i class="fa-solid fa-circle-check"></i> Accessible
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-1 flex flex-col overflow-hidden relative">
+    
+    <!-- ACCESSIBILITY TOOLBAR (VISIBLE ONLY IN ACCESSIBLE MODE) -->
+    <div id="accessibleToolbar" class="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0 hidden">
+      <div class="flex items-center gap-2 text-slate-300 font-medium">
+        <i class="fa-solid fa-universal-access text-sky-400 text-base"></i>
+        <span>Accessibility Customization Controls:</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4">
+        <!-- 5. Language Choice Control -->
+        <div class="flex items-center gap-1.5">
+          <label for="langSelect" class="text-slate-400 font-medium"><i class="fa-solid fa-language text-indigo-400 mr-1"></i>Language:</label>
+          <select id="langSelect" onchange="changeLanguage(this.value)" class="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer">
+            <option value="en">English</option>
+            <option value="zh-HK">繁體中文 (Traditional Chinese)</option>
+            <option value="zh-CN">簡體中文 (Simplified Chinese)</option>
+          </select>
+        </div>
+
+        <!-- 6. Font Size Adjustment Control -->
+        <div class="flex items-center gap-1">
+          <span class="text-slate-400 font-medium mr-1"><i class="fa-solid fa-font text-emerald-400 mr-1"></i>Text Size:</span>
+          <button onclick="adjustFontSize(-2)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded font-bold text-slate-200" title="Decrease font size">A-</button>
+          <button onclick="resetFontSize()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-300" title="Reset font size">Reset</button>
+          <button onclick="adjustFontSize(2)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded font-bold text-slate-200" title="Increase font size">A+</button>
+        </div>
+
+        <!-- 7. Color Theme / Contrast Choice Control -->
+        <div class="flex items-center gap-1.5">
+          <label for="themeSelect" class="text-slate-400 font-medium"><i class="fa-solid fa-palette text-amber-400 mr-1"></i>Color Theme:</label>
+          <select id="themeSelect" onchange="changeTheme(this.value)" class="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer">
+            <option value="theme-default">Default Light</option>
+            <option value="theme-dark">High Contrast Dark</option>
+            <option value="theme-yellow-black">High Contrast (Yellow on Black)</option>
+            <option value="theme-sepia">Soft Sepia</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIEW AREA CONTAINER -->
+    <div class="flex-1 flex flex-col bg-slate-950 overflow-hidden relative">
+      
+      <!-- Preview Browser Toolbar Header -->
+      <div class="h-10 bg-slate-950 px-4 flex items-center justify-between border-b border-slate-800 text-xs shrink-0">
+        <div class="flex items-center space-x-2">
+          <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
+          <span class="w-3 h-3 rounded-full bg-yellow-500/80 inline-block"></span>
+          <span class="w-3 h-3 rounded-full bg-green-500/80 inline-block"></span>
+          <span class="ml-2 font-mono text-slate-400 text-[11px] truncate">https://portal.hkdse-school.edu.hk/student/login</span>
+        </div>
+        <div class="flex items-center space-x-2 text-slate-400">
+          <span id="previewModeBadge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-950 text-red-400 border border-red-800">Inaccessible Mode</span>
+          <button onclick="reloadPreview()" title="Reset Preview State" class="hover:text-slate-100 p-1"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+      </div>
+
+      <!-- Virtual Webpage Preview Container -->
+      <div id="previewContainer" class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-950 relative bad-mode transition-all duration-300">
+        
+        <div class="max-w-2xl mx-auto rounded-xl shadow-2xl overflow-hidden border border-slate-700 min-h-[500px] flex flex-col transition-all duration-200 theme-default" id="virtualPage" style="font-size: 16px;">
+          
+          <!-- Site Header -->
+          <header class="p-4 border-b border-slate-200 card-bg flex items-center justify-between">
+            <div>
+              <div id="headingContainer">
+                <h3 id="siteHeading" class="text-lg font-bold text-main m-0">Hong Kong Union Secondary School</h3>
+              </div>
+              <p id="siteSubheading" class="text-xs text-sub m-0 mt-0.5">HKDSE ICT E-Learning Portal</p>
+            </div>
+            <div>
+              <span id="siteBadge" class="bg-sky-100 text-sky-800 text-[11px] font-semibold px-2 py-1 rounded">2026/27</span>
+            </div>
+          </header>
+
+          <!-- Main Page Body -->
+          <div class="p-6 space-y-6 flex-1">
+            
+            <!-- Announcement Notice Box -->
+            <div id="announcementBox" class="p-3.5 rounded-lg text-sm bg-slate-100 text-slate-300 border border-slate-200">
+              <i class="fa-solid fa-bullhorn mr-1.5"></i>
+              <span id="txtNoticeTitle" class="font-bold">Important Notice:</span> <span id="txtNoticeContent">HKDSE SBA Project Draft submissions close this Friday at 17:00 HKT!</span>
+            </div>
+
+            <!-- Campus Image Section -->
+            <div class="border border-slate-200 card-bg rounded-lg p-3">
+              <div class="relative rounded overflow-hidden bg-slate-200 flex items-center justify-center max-h-[180px]">
+                <img id="campusImg" src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=600&auto=format&fit=crop" class="w-full h-40 object-cover" />
+              </div>
+              <p id="imgCaptionText" class="text-xs text-sub mt-2 italic">Fig 1.1 Campus ICT Innovation Centre</p>
+            </div>
+
+            <!-- Form Section -->
+            <div class="border-t border-slate-200 pt-5">
+              <h2 id="txtLoginTitle" class="text-base font-bold text-main mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-lock text-sky-600 text-sm"></i> Student Portal Login
+              </h2>
+
+              <form onsubmit="event.preventDefault(); alert('Portal Submission Triggered!');" class="space-y-4">
+                
+                <div class="space-y-3">
+                  <div>
+                    <div id="labelUserContainer">
+                      <p id="labelUserText" class="text-xs font-semibold text-main mb-1">DSE Candidate Number:</p>
+                    </div>
+                    <input type="text" id="userInput" placeholder="e.g. 26801234" class="w-full px-3 py-2 text-sm border rounded-md input-style">
+                  </div>
+                  <div>
+                    <div id="labelPassContainer">
+                      <p id="labelPassText" class="text-xs font-semibold text-main mb-1">Password:</p>
+                    </div>
+                    <input type="password" id="passInput" placeholder="••••••••" class="w-full px-3 py-2 text-sm border rounded-md input-style">
+                  </div>
+                </div>
+
+                <div id="submitBtnElem" class="pt-2">
+                  <!-- Dynamic render: <div> vs <button> -->
+                </div>
+              </form>
+            </div>
+
+            <!-- Required Actions List -->
+            <div class="border-t border-slate-200 pt-4">
+              <h3 id="txtChecklistTitle" class="text-xs font-bold text-main uppercase tracking-wider mb-2">Required Checklist Items</h3>
+              <ul class="text-xs space-y-2" id="checklistItems">
+                <!-- Dynamic render -->
+              </ul>
+            </div>
+
+            <!-- External Link -->
+            <div class="text-xs text-sub border-t border-slate-200 pt-3">
+              <span id="txtSchedulePrefix">For full examination timetable details,</span> 
+              <a href="#" id="scheduleLink" onclick="alert('Navigating to schedule...'); return false;" class="text-sky-600 underline font-medium">click here</a>.
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Screen Reader Output Console Bar -->
+      <div class="h-24 bg-slate-950 border-t border-slate-800 p-3 flex flex-col justify-between shrink-0">
+        <div class="flex items-center justify-between text-xs font-semibold text-slate-400 mb-1">
+          <span class="flex items-center gap-2 text-sky-400">
+            <i class="fa-solid fa-volume-high animate-pulse"></i> Screen Reader Speech Output (Simulated NVDA / VoiceOver)
+          </span>
+          <span class="text-[10px] font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded">Speech Stream</span>
+        </div>
+        <div id="screenReaderLog" class="flex-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-emerald-400 overflow-y-auto flex items-center">
+          Inaccessible mode loaded. Press Tab or switch to Accessible Mode to compare screen reader behavior.
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    /* ==========================================================================
+       1. MULTI-LANGUAGE DICTIONARY (EN, ZH-HK, ZH-CN)
+       ========================================================================== */
+    const i18n = {
+      en: {
+        heading: "Hong Kong Union Secondary School",
+        subheading: "HKDSE ICT E-Learning Portal",
+        noticeTitle: "Important Notice:",
+        noticeContent: "HKDSE SBA Project Draft submissions close this Friday at 17:00 HKT!",
+        imgCaption: "Fig 1.1 Campus ICT Innovation Centre",
+        imgAlt: "Hong Kong Union Secondary School ICT Innovation Centre Campus Building",
+        loginTitle: "Student Portal Login",
+        candidateNumLabel: "DSE Candidate Number:",
+        passwordLabel: "Password:",
+        submitBtn: "Submit Portal Login",
+        checklistTitle: "Required Checklist Items",
+        item1: "Elective Selection Form",
+        item2: "Parent Consent Slip",
+        item3: "ICT Practical Exam Declaration",
+        statusRequired: "[REQUIRED]",
+        statusCompleted: "[COMPLETED]",
+        schedulePrefix: "For full examination timetable details,",
+        scheduleLink: "view academic schedule",
+        scheduleLinkBad: "click here",
+        srBad: "Inaccessible Mode: Form inputs missing label associations; DIV button cannot be focused via Tab key.",
+        srGood: "Accessible Mode: Form inputs explicitly labeled. Native button active. Keyboard focus enabled."
+      },
+      'zh-HK': {
+        heading: "香港聯會中學",
+        subheading: "香港中學文憑考試 資訊及通訊科技 電子學習門戶網站",
+        noticeTitle: "重要通知：",
+        noticeContent: "HKDSE 校本評核 (SBA) 專題報告初稿將於本星期五下午 5:00 截止提交！",
+        imgCaption: "圖 1.1 校園資訊及通訊科技創新中心",
+        imgAlt: "香港聯會中學資訊及通訊科技創新中心校園大樓",
+        loginTitle: "學生門戶網站登入",
+        candidateNumLabel: "文憑試考生編號：",
+        passwordLabel: "密碼：",
+        submitBtn: "提交門戶網站登入",
+        checklistTitle: "須辦理事項清單",
+        item1: "選修科目選擇表格",
+        item2: "家長同意書",
+        item3: "資訊及通訊科技實務考試聲明書",
+        statusRequired: "【必須填妥】",
+        statusCompleted: "【已完成】",
+        schedulePrefix: "如欲查閱完整考試時間表詳情，",
+        scheduleLink: "請瀏覽學術考試日程表",
+        scheduleLinkBad: "按此處",
+        srBad: "不障礙模式：表單輸入框缺少標籤關聯；DIV 按鈕無法透過 Tab 鍵獲取焦點。",
+        srGood: "無障礙模式：表單輸入框已清晰關聯標籤。原生按鈕運作正常，支援鍵盤 Tab 鍵切換焦點。"
+      },
+      'zh-CN': {
+        heading: "香港联会中学",
+        subheading: "香港中学文凭考试 资讯及通讯科技 电子学习门户网站",
+        noticeTitle: "重要通知：",
+        noticeContent: "HKDSE 校本评核 (SBA) 专题报告初稿将于本星期五下午 5:00 截止提交！",
+        imgCaption: "图 1.1 校园资讯及通讯科技创新中心",
+        imgAlt: "香港联会中学资讯及通讯科技创新中心校园大楼",
+        loginTitle: "学生门户网站登录",
+        candidateNumLabel: "文凭试考生编号：",
+        passwordLabel: "密码：",
+        submitBtn: "提交门户网站登录",
+        checklistTitle: "须办理事项清单",
+        item1: "选修科目选择表格",
+        item2: "家长同意书",
+        item3: "资讯及通讯科技实务考试声明书",
+        statusRequired: "【必须填妥】",
+        statusCompleted: "【已完成】",
+        schedulePrefix: "如欲查阅完整考试时间表详情，",
+        scheduleLink: "请浏览学术考试日程表",
+        scheduleLinkBad: "按此处",
+        srBad: "无障碍缺陷模式：表单输入框缺少标签关联；DIV 按钮无法通过 Tab 键获取焦点。",
+        srGood: "无障碍模式：表单输入框已清晰关联标签。原生按钮运作正常，支持键盘 Tab 键切换焦点。"
+      }
+    };
+
+    /* ==========================================================================
+       2. GLOBAL STATE VARIABLES
+       ========================================================================== */
+    let currentMode = 'bad'; // 'bad' or 'good'
+    let currentLang = 'en';
+    let currentFontSize = 16; // base px
+    let currentTheme = 'theme-default';
+
+    /* ==========================================================================
+       3. INITIALIZATION
+       ========================================================================== */
+    window.onload = function() {
+      updateModeUI();
+    };
+
+    function setMode(mode) {
+      currentMode = mode;
+      updateModeUI();
+    }
+
+    function reloadPreview() {
+      updateModeUI();
+    }
+
+    /* ==========================================================================
+       4. ACCESSIBILITY ADJUSTMENT HANDLERS (LANG, FONT SIZE, THEME)
+       ========================================================================== */
+    function changeLanguage(langKey) {
+      currentLang = langKey;
+      applyLanguageText();
+    }
+
+    function adjustFontSize(delta) {
+      currentFontSize = Math.min(Math.max(currentFontSize + delta, 12), 24);
+      document.getElementById('virtualPage').style.fontSize = currentFontSize + 'px';
+    }
+
+    function resetFontSize() {
+      currentFontSize = 16;
+      document.getElementById('virtualPage').style.fontSize = '16px';
+    }
+
+    function changeTheme(themeClass) {
+      currentTheme = themeClass;
+      const page = document.getElementById('virtualPage');
+      page.className = `max-w-2xl mx-auto rounded-xl shadow-2xl overflow-hidden border border-slate-700 min-h-[500px] flex flex-col transition-all duration-200 ${themeClass}`;
+    }
+
+    /* ==========================================================================
+       5. MAIN RENDERER & VIEW TOGGLE
+       ========================================================================== */
+    function updateModeUI() {
+      const container = document.getElementById('previewContainer');
+      const badge = document.getElementById('previewModeBadge');
+      const btnBad = document.getElementById('btnBadMode');
+      const btnGood = document.getElementById('btnGoodMode');
+      const toolbar = document.getElementById('accessibleToolbar');
+      const speechBox = document.getElementById('screenReaderLog');
+
+      const headingContainer = document.getElementById('headingContainer');
+      const announcementBox = document.getElementById('announcementBox');
+      const campusImg = document.getElementById('campusImg');
+      const labelUserContainer = document.getElementById('labelUserContainer');
+      const labelPassContainer = document.getElementById('labelPassContainer');
+      const submitContainer = document.getElementById('submitBtnElem');
+      const checklistItems = document.getElementById('checklistItems');
+      const page = document.getElementById('virtualPage');
+
+      const dict = i18n[currentLang];
+
+      if (currentMode === 'bad') {
+        // --- INACCESSIBLE MODE ---
+        container.className = "flex-1 overflow-y-auto p-4 md:p-8 bg-slate-950 relative bad-mode";
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-950 text-red-400 border border-red-800";
+        badge.textContent = "Inaccessible Mode";
+
+        btnBad.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-red-500/20 text-red-400 border border-red-500/40 shadow";
+        btnGood.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200";
+
+        // Hide Accessibility Customization Toolbar
+        toolbar.classList.add('hidden');
+
+        // Reset theme to standard default for bad mode
+        page.className = "max-w-2xl mx-auto rounded-xl shadow-2xl overflow-hidden border border-slate-700 min-h-[500px] flex flex-col transition-all duration-200 theme-default";
+        page.style.fontSize = "16px";
+
+        // Bad Heading: Skipped hierarchy (h3 instead of h1)
+        headingContainer.innerHTML = `<h3 id="siteHeading" class="text-lg font-bold text-slate-800 m-0">${dict.heading}</h3>`;
+
+        // Bad Contrast: Low contrast gray text (#cbd5e1 on #f1f5f9)
+        announcementBox.className = "p-3.5 rounded-lg text-sm bg-slate-100 text-slate-300 border border-slate-200";
+
+        // Bad Image: Missing alt attribute
+        campusImg.removeAttribute('alt');
+
+        // Bad Form Labels: Plain <p> tags instead of <label for="">
+        labelUserContainer.innerHTML = `<p id="labelUserText" class="text-xs font-semibold text-slate-700 mb-1">${dict.candidateNumLabel}</p>`;
+        labelPassContainer.innerHTML = `<p id="labelPassText" class="text-xs font-semibold text-slate-700 mb-1">${dict.passwordLabel}</p>`;
+
+        // Bad Button: Non-semantic <div> button
+        submitContainer.innerHTML = `<div class="w-full bg-sky-600 text-white font-medium py-2 rounded text-center cursor-pointer hover:bg-sky-700" onclick="alert('Submitted via non-semantic <div> button!')">${dict.submitBtn}</div>`;
+
+        // Bad Checklist: Using color as sole indicator of status
+        checklistItems.innerHTML = `
+          <li style="color: #ef4444;" class="font-medium">${dict.item1}</li>
+          <li style="color: #22c55e;" class="font-medium">${dict.item2}</li>
+          <li style="color: #ef4444;" class="font-medium">${dict.item3}</li>
+        `;
+
+        document.getElementById('scheduleLink').textContent = dict.scheduleLinkBad;
+
+        speechBox.innerHTML = `
+          <span class="text-red-400 font-bold mr-2">[INACCESSIBLE SPEECH]</span>
+          <span class="text-slate-300">"${dict.srBad}"</span>
+        `;
+
+      } else {
+        // --- ACCESSIBLE MODE ---
+        container.className = "flex-1 overflow-y-auto p-4 md:p-8 bg-slate-950 relative accessible-mode";
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-950 text-emerald-400 border border-emerald-800";
+        badge.textContent = "Accessible Mode";
+
+        btnBad.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200";
+        btnGood.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow";
+
+        // Show Accessibility Customization Toolbar
+        toolbar.classList.remove('hidden');
+
+        // Apply selected theme and font size
+        changeTheme(currentTheme);
+        document.getElementById('virtualPage').style.fontSize = currentFontSize + 'px';
+
+        // Good Heading: Proper <h1> tag
+        headingContainer.innerHTML = `<h1 id="siteHeading" class="text-lg font-bold text-main m-0">${dict.heading}</h1>`;
+
+        // Good Contrast: High contrast theme class
+        announcementBox.className = "p-3.5 rounded-lg text-sm accent-bg shadow-sm";
+
+        // Good Image: Descriptive alt text
+        campusImg.setAttribute('alt', dict.imgAlt);
+
+        // Good Form Labels: Explicit <label for="">
+        labelUserContainer.innerHTML = `<label id="labelUserText" for="userInput" class="block text-xs font-bold text-main mb-1">${dict.candidateNumLabel}</label>`;
+        labelPassContainer.innerHTML = `<label id="labelPassText" for="passInput" class="block text-xs font-bold text-main mb-1">${dict.passwordLabel}</label>`;
+
+        // Good Button: Native <button type="submit">
+        submitContainer.innerHTML = `<button type="submit" class="w-full accent-bg font-semibold py-2 rounded text-sm hover:opacity-90 shadow focus:ring-2 focus:ring-sky-500">${dict.submitBtn}</button>`;
+
+        // Good Checklist: Text status indicators alongside color
+        checklistItems.innerHTML = `
+          <li class="flex items-center gap-2 text-main font-medium">
+            <span class="bg-red-100 text-red-800 text-[10px] px-1.5 py-0.5 rounded font-bold">${dict.statusRequired}</span> ${dict.item1}
+          </li>
+          <li class="flex items-center gap-2 text-main font-medium">
+            <span class="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-bold">${dict.statusCompleted}</span> ${dict.item2}
+          </li>
+          <li class="flex items-center gap-2 text-main font-medium">
+            <span class="bg-red-100 text-red-800 text-[10px] px-1.5 py-0.5 rounded font-bold">${dict.statusRequired}</span> ${dict.item3}
+          </li>
+        `;
+
+        document.getElementById('scheduleLink').textContent = dict.scheduleLink;
+
+        speechBox.innerHTML = `
+          <span class="text-emerald-400 font-bold mr-2">[ACCESSIBLE SPEECH]</span>
+          <span class="text-emerald-300">"${dict.srGood}"</span>
+        `;
+      }
+
+      applyLanguageText();
+    }
+
+    /* Apply dictionary strings to static DOM nodes */
+    function applyLanguageText() {
+      const dict = i18n[currentLang];
+
+      const siteHeading = document.getElementById('siteHeading');
+      if (siteHeading) siteHeading.textContent = dict.heading;
+
+      document.getElementById('siteSubheading').textContent = dict.subheading;
+      document.getElementById('txtNoticeTitle').textContent = dict.noticeTitle;
+      document.getElementById('txtNoticeContent').textContent = dict.noticeContent;
+      document.getElementById('imgCaptionText').textContent = dict.imgCaption;
+      document.getElementById('txtLoginTitle').childNodes[1].textContent = " " + dict.loginTitle;
+
+      const labelUserText = document.getElementById('labelUserText');
+      if (labelUserText) labelUserText.textContent = dict.candidateNumLabel;
+
+      const labelPassText = document.getElementById('labelPassText');
+      if (labelPassText) labelPassText.textContent = dict.passwordLabel;
+
+      const submitBtn = document.getElementById('submitBtnElem').children[0];
+      if (submitBtn) submitBtn.textContent = dict.submitBtn;
+
+      document.getElementById('txtChecklistTitle').textContent = dict.checklistTitle;
+      document.getElementById('txtSchedulePrefix').textContent = dict.schedulePrefix;
+
+      const scheduleLink = document.getElementById('scheduleLink');
+      if (scheduleLink) {
+        scheduleLink.textContent = (currentMode === 'bad') ? dict.scheduleLinkBad : dict.scheduleLink;
+      }
+
+      if (currentMode === 'good') {
+        const campusImg = document.getElementById('campusImg');
+        if (campusImg) campusImg.setAttribute('alt', dict.imgAlt);
+      }
+    }
+  </script>
+</body>
+</html>
