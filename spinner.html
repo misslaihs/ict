@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Spin - Image Selector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        display: ['Fredoka', 'cursive']
+                    },
+                    colors: {
+                        brand: {
+                            pink: '#FF2E93',
+                            purple: '#A100FF',
+                            cyan: '#00F0FF',
+                            yellow: '#FFDF00',
+                            orange: '#FF5E00',
+                            dark: '#0F0826',
+                            card: '#1D133D'
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 1.5s infinite alternate',
+                        'bounce-slow': 'bounce 2s infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'pop-in': 'popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards'
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%': { boxShadow: '0 0 15px rgba(255, 46, 147, 0.5)' },
+                            '100%': { boxShadow: '0 0 35px rgba(0, 240, 255, 0.9)' }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-8px)' }
+                        },
+                        popIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.5)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background: radial-gradient(circle at center, #241442 0%, #0F0826 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .glass-card {
+            background: rgba(30, 20, 60, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .text-glow {
+            text-shadow: 0 0 12px rgba(255, 223, 0, 0.6), 0 0 25px rgba(255, 46, 147, 0.6);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 8, 38, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #FF2E93;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00F0FF;
+        }
+
+        .pointer-shadow {
+            filter: drop-shadow(0px 0px 10px rgba(255, 223, 0, 0.8));
+        }
+    </style>
+</head>
+<body class="font-sans antialiased text-white select-none flex flex-col min-h-screen">
+
+    <header class="w-full px-4 py-4 md:px-8 glass-panel sticky top-0 z-30 flex items-center justify-between border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-pink via-brand-purple to-brand-cyan flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-brand-pink/30 animate-pulse">
+                <i class="fa-solid fa-dharmachakra animate-spin" style="animation-duration: 8s;"></i>
+            </div>
+            <div>
+                <h1 class="font-display text-2xl md:text-3xl font-bold bg-gradient-to-r from-brand-yellow via-brand-pink to-brand-cyan bg-clip-text text-transparent">
+                    Lucky Spin
+                </h1>
+                <p class="text-xs text-gray-300 hidden sm:block">Random Image Selector Wheel</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-4">
+            <button id="soundToggleBtn" onclick="toggleSound()" class="p-3 rounded-full glass-panel hover:bg-white/20 transition-all text-yellow-300 hover:scale-105 active:scale-95" title="Toggle Sound Effects">
+                <i id="soundIcon" class="fa-solid fa-volume-high text-lg"></i>
+            </button>
+
+            <button onclick="toggleAdminDrawer()" class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-brand-purple to-brand-pink hover:from-brand-pink hover:to-brand-purple font-display font-semibold text-sm transition-all shadow-lg hover:shadow-brand-pink/50 hover:scale-105 active:scale-95 border border-white/20">
+                <i class="fa-solid fa-gear text-brand-yellow"></i>
+                <span>Manage Images (<span id="imageCountBadge">20</span>)</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col lg:flex-row items-center justify-between gap-8 relative z-10">
+
+        <!-- Left Side: Wheel Container -->
+        <div class="flex-1 flex flex-col items-center justify-center w-full max-w-2xl relative">
+            <div class="relative w-full aspect-square max-w-[500px] sm:max-w-[550px] flex items-center justify-center p-2">
+                <div class="absolute inset-0 rounded-full bg-gradient-to-r from-brand-pink via-brand-purple to-brand-cyan opacity-40 blur-2xl animate-pulse-glow"></div>
+                <div class="absolute inset-2 rounded-full border-4 border-yellow-400/40 pointer-events-none shadow-[0_0_30px_rgba(255,223,0,0.3)]"></div>
+
+                <canvas id="wheelCanvas" width="1000" height="1000" class="w-full h-full rounded-full cursor-pointer touch-none shadow-2xl z-10 transition-transform duration-100"></canvas>
+
+                <!-- Top Center Pointer -->
+                <div class="absolute -top-3 z-20 left-1/2 -translate-x-1/2 pointer-events-none pointer-shadow transform hover:scale-110 transition-transform">
+                    <svg width="48" height="58" viewBox="0 0 48 58" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M24 58L2.35185 14.5L45.6482 14.5L24 58Z" fill="#FFDF00" stroke="#FF5E00" stroke-width="4"/>
+                        <circle cx="24" cy="14" r="12" fill="#FF2E93" stroke="#FFFFFF" stroke-width="3"/>
+                    </svg>
+                </div>
+
+                <!-- Center Trigger -->
+                <div onclick="spinWheel()" class="absolute z-20 w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-brand-pink via-brand-purple to-brand-cyan p-1 shadow-2xl cursor-pointer hover:scale-110 active:scale-95 transition-all duration-300 flex items-center justify-center group">
+                    <div class="w-full h-full rounded-full bg-brand-dark flex flex-col items-center justify-center border-2 border-yellow-300 text-center p-1 group-hover:bg-gradient-to-b group-hover:from-brand-purple group-hover:to-brand-dark transition-all">
+                        <span id="spinBtnText" class="font-display font-extrabold text-xl sm:text-2xl text-brand-yellow text-glow tracking-wider group-hover:scale-110 transition-transform">SPIN!</span>
+                        <i class="fa-solid fa-bolt text-brand-cyan text-xs mt-0.5 animate-bounce"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-4 w-full">
+                <button onclick="spinWheel()" id="mainSpinBtn" class="px-10 py-4 rounded-full bg-gradient-to-r from-brand-yellow via-brand-orange to-brand-pink font-display font-bold text-xl text-brand-dark shadow-[0_0_25px_rgba(255,223,0,0.6)] hover:shadow-[0_0_40px_rgba(255,46,147,0.9)] hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
+                    <i class="fa-solid fa-play text-xl"></i>
+                    <span>SPIN THE WHEEL!</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Side: Recent Players & Wheel Info -->
+        <div class="w-full lg:w-96 flex flex-col gap-5">
+            <div class="glass-panel p-5 rounded-3xl flex flex-col gap-3 relative overflow-hidden border border-white/15 shadow-xl">
+                <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-brand-cyan/10 rounded-full blur-xl pointer-events-none"></div>
+                <h2 class="font-display font-bold text-lg text-brand-yellow flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Lucky Spin Rules</span>
+                </h2>
+                <p class="text-sm text-gray-200 leading-relaxed">
+                    Click <strong class="text-brand-pink">SPIN</strong> to roll the wheel! Once it stops, the selected player image will <strong class="text-brand-yellow">automatically enlarge</strong> with sound fanfare & confetti celebration!
+                </p>
+                <div class="flex items-center justify-between pt-2 border-t border-white/10 text-xs text-gray-300">
+                    <span>Slots Loaded: <strong id="slotCounter" class="text-brand-cyan font-bold text-sm">20 / 20</strong></span>
+                    <button onclick="shuffleSlots()" class="text-brand-yellow hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-shuffle"></i> Shuffle
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player History Panel -->
+            <div class="glass-panel p-5 rounded-3xl flex flex-col gap-3 flex-1 min-h-[250px] border border-white/15 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-display font-bold text-lg text-brand-cyan flex items-center gap-2">
+                        <i class="fa-solid fa-trophy text-brand-yellow"></i>
+                        <span>Recent Selected Players</span>
+                    </h2>
+                    <button onclick="clearHistory()" class="text-xs text-gray-400 hover:text-white transition-colors">Clear</button>
+                </div>
+
+                <div id="historyList" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+                    <div id="emptyHistoryMsg" class="text-center py-8 text-gray-400 text-sm italic">
+                        No selection yet! Give the wheel a spin.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <div id="adminDrawer" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300 flex justify-end">
+        <div id="drawerContent" class="w-full max-w-xl bg-brand-dark h-full p-6 overflow-y-auto transform translate-x-full transition-transform duration-300 flex flex-col gap-6 border-l border-white/20 shadow-2xl">
+            
+            <div class="flex items-center justify-between pb-4 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-xl bg-brand-purple/40 text-brand-cyan border border-brand-cyan/30">
+                        <i class="fa-solid fa-images text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-display text-2xl font-bold text-white">Image Setup</h2>
+                        <p class="text-xs text-gray-400">Manage up to 20 images for Lucky Spin</p>
+                    </div>
+                </div>
+                <button onclick="toggleAdminDrawer()" class="p-2 rounded-full hover:bg-white/10 text-gray-300 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- File Upload -->
+            <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-brand-pink/50 hover:border-brand-cyan bg-white/5 hover:bg-white/10 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 group">
+                <input type="file" id="fileInput" multiple accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                <div class="w-14 h-14 rounded-full bg-brand-pink/20 group-hover:scale-110 transition-transform flex items-center justify-center text-brand-pink text-2xl">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div>
+                    <p class="font-semibold text-white">Click or drag & drop images here</p>
+                    <p class="text-xs text-gray-400 mt-1">Upload up to 20 images (JPG, PNG, WebP, GIF)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+                <button onclick="loadDefaultImages()" class="flex-1 py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-gray-200 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>Reset Defaults</span>
+                </button>
+                <button onclick="removeAllImages()" class="flex-1 py-2.5 px-4 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-semibold transition-all flex items-center justify-center gap-2 border border-red-500/30">
+                    <i class="fa-solid fa-trash"></i>
+                    <span>Clear All</span>
+                </button>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Current Image Grid</span>
+                    <span class="text-xs text-brand-cyan font-mono" id="gridCountText">20 / 20 Loaded</span>
+                </div>
+                
+                <div id="adminGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <!-- Dynamic Grid Items -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENLARGED PLAYER REVEAL MODAL -->
+    <div id="playerModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl opacity-0 pointer-events-none transition-all duration-300 flex items-center justify-center p-4">
+        <div id="playerCard" class="bg-gradient-to-b from-brand-card via-[#1A0B2E] to-brand-dark p-6 sm:p-8 rounded-3xl border-2 border-brand-yellow/60 max-w-2xl w-full flex flex-col items-center text-center gap-6 shadow-[0_0_80px_rgba(255,223,0,0.5)] transform scale-90 transition-all duration-300 relative overflow-hidden">
+            
+            <button onclick="closePlayerModal()" class="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <!-- Header Title -->
+            <div class="z-10 flex flex-col items-center gap-2 pt-2">
+                <span class="px-5 py-1.5 rounded-full bg-gradient-to-r from-brand-pink to-brand-purple border border-brand-yellow text-brand-yellow text-xs sm:text-sm font-extrabold uppercase tracking-widest animate-bounce">
+                    🎉 Selected Player! 🎉
+                </span>
+                <h2 id="playerTitle" class="font-display font-extrabold text-3xl sm:text-5xl text-white text-glow">
+                    Slot #1
+                </h2>
+            </div>
+
+            <!-- Prominently Enlarged Player Image Container -->
+            <div class="relative z-10 w-full max-h-[450px] aspect-square rounded-2xl overflow-hidden border-4 border-yellow-300/80 shadow-[0_0_30px_rgba(255,223,0,0.4)] bg-black/60 flex items-center justify-center group cursor-pointer" onclick="openFullView()">
+                <img id="playerImage" src="" alt="Selected Player Image" class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300">
+                <div class="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-black/70 hover:bg-black/90 text-brand-cyan text-xs font-bold backdrop-blur-md flex items-center gap-1.5 border border-white/20">
+                    <i class="fa-solid fa-expand"></i>
+                    <span>Fullscreen</span>
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="z-10 flex flex-wrap items-center justify-center gap-4 w-full">
+                <button onclick="closePlayerModal()" class="px-8 py-4 rounded-full bg-gradient-to-r from-brand-yellow via-brand-orange to-brand-pink font-display font-bold text-lg text-brand-dark shadow-[0_0_25px_rgba(255,223,0,0.5)] hover:scale-105 active:scale-95 transition-all flex-1">
+                    Spin Again! 🚀
+                </button>
+                <button onclick="openFullView()" class="px-6 py-4 rounded-full glass-panel hover:bg-white/20 text-brand-cyan font-bold transition-all flex items-center gap-2" title="Inspect Fullscreen">
+                    <i class="fa-solid fa-magnifying-glass-plus text-lg"></i>
+                    <span>Zoom Image</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Inspector Modal -->
+    <div id="fullViewModal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl opacity-0 pointer-events-none transition-opacity duration-300 flex items-center justify-center p-4" onclick="closeFullView()">
+        <button onclick="closeFullView()" class="absolute top-6 right-6 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all">
+            <i class="fa-solid fa-xmark text-2xl"></i>
+        </button>
+        <img id="fullViewImage" src="" alt="Full View" class="max-w-full max-h-full object-contain rounded-xl border border-white/20 shadow-2xl">
+    </div>
+
+    <script>
+        let images = [];
+        let currentRotation = 0;
+        let isSpinning = false;
+        let soundEnabled = true;
+        let playersHistory = [];
+        let audioCtx = null;
+
+        const sectorColors = [
+            '#FF2E93', '#A100FF', '#00F0FF', '#FFDF00', '#FF5E00',
+            '#00FF66', '#FF0055', '#7928CA', '#00DFA2', '#F2C94C',
+            '#EB5757', '#9B51E0', '#2F80ED', '#27AE60', '#F2994A',
+            '#E040FB', '#00E5FF', '#FFEA00', '#FF3D00', '#1DE9B6'
+        ];
+
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playTickSound() {
+            if (!soundEnabled) return;
+            try {
+                const ctxAudio = getAudioContext();
+                const osc = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600 + Math.random() * 200, ctxAudio.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, ctxAudio.currentTime + 0.04);
+
+                gain.gain.setValueAtTime(0.3, ctxAudio.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctxAudio.currentTime + 0.04);
+
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+
+                osc.start();
+                osc.stop(ctxAudio.currentTime + 0.04);
+            } catch (e) {}
+        }
+
+        function playFanfare() {
+            if (!soundEnabled) return;
+            try {
+                const ctxAudio = getAudioContext();
+                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+                notes.forEach((freq, idx) => {
+                    const osc = ctxAudio.createOscillator();
+                    const gain = ctxAudio.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctxAudio.currentTime + idx * 0.08);
+
+                    gain.gain.setValueAtTime(0, ctxAudio.currentTime + idx * 0.08);
+                    gain.gain.linearRampToValueAtTime(0.3, ctxAudio.currentTime + idx * 0.08 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctxAudio.currentTime + idx * 0.08 + 0.5);
+
+                    osc.connect(gain);
+                    gain.connect(ctxAudio.destination);
+
+                    osc.start(ctxAudio.currentTime + idx * 0.08);
+                    osc.stop(ctxAudio.currentTime + idx * 0.08 + 0.5);
+                });
+            } catch (e) {}
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            const btn = document.getElementById('soundToggleBtn');
+            if (soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high text-lg';
+                btn.classList.remove('opacity-50');
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-lg';
+                btn.classList.add('opacity-50');
+            }
+        }
+
+        function createDefaultImages() {
+            const defaults = [];
+            const icons = [
+                '🚀', '🎨', '🔥', '💎', '⭐', '🌈', '⚡', '🎉',
+                '🍀', '👑', '🍕', '🦄', '🎮', '🎸', '🍩', '🏆',
+                '🎁', '🔮', '🌞', '🪐'
+            ];
+
+            for (let i = 0; i < 20; i++) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 300;
+                tempCanvas.height = 300;
+                const tCtx = tempCanvas.getContext('2d');
+
+                const grad = tCtx.createLinearGradient(0, 0, 300, 300);
+                grad.addColorStop(0, sectorColors[i % sectorColors.length]);
+                grad.addColorStop(1, sectorColors[(i + 5) % sectorColors.length]);
+                tCtx.fillStyle = grad;
+                tCtx.fillRect(0, 0, 300, 300);
+
+                tCtx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                for (let j = 0; j < 5; j++) {
+                    tCtx.beginPath();
+                    tCtx.arc(150, 150, 30 + j * 25, 0, Math.PI * 2);
+                    tCtx.fill();
+                }
+
+                tCtx.font = 'bold 110px sans-serif';
+                tCtx.textAlign = 'center';
+                tCtx.textBaseline = 'middle';
+                tCtx.shadowColor = 'rgba(0,0,0,0.4)';
+                tCtx.shadowBlur = 15;
+                tCtx.fillText(icons[i], 150, 150);
+
+                const src = tempCanvas.toDataURL('image/png');
+                const img = new Image();
+                img.src = src;
+
+                defaults.push({
+                    id: 'default-' + i,
+                    name: `Player ${icons[i]} #${i + 1}`,
+                    src: src,
+                    element: img
+                });
+            }
+            return defaults;
+        }
+
+        function initImages() {
+            images = createDefaultImages();
+            updateUI();
+            drawWheel();
+        }
+
+        function drawWheel() {
+            const numSectors = images.length;
+            if (numSectors === 0) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#1D133D';
+                ctx.beginPath();
+                ctx.arc(500, 500, 480, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 36px Fredoka';
+                ctx.textAlign = 'center';
+                ctx.fillText('Please Upload Images!', 500, 500);
+                return;
+            }
+
+            const arcSize = (Math.PI * 2) / numSectors;
+            const centerX = 500;
+            const centerY = 500;
+            const radius = 480;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(currentRotation);
+
+            for (let i = 0; i < numSectors; i++) {
+                const angle = i * arcSize;
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius, angle, angle + arcSize);
+                ctx.closePath();
+                ctx.fillStyle = sectorColors[i % sectorColors.length];
+                ctx.fill();
+
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#0F0826';
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius, angle, angle + arcSize);
+                const sectorGrad = ctx.createRadialGradient(0, 0, 50, 0, 0, radius);
+                sectorGrad.addColorStop(0, 'rgba(255,255,255,0.3)');
+                sectorGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+                ctx.fillStyle = sectorGrad;
+                ctx.fill();
+
+                ctx.save();
+                ctx.rotate(angle + arcSize / 2);
+
+                const imgObj = images[i];
+                if (imgObj && imgObj.element && imgObj.element.complete) {
+                    const imgRadius = radius * 0.65;
+                    const imgSize = Math.min(110, (radius * Math.sin(arcSize / 2)) * 1.5);
+
+                    ctx.save();
+                    ctx.translate(imgRadius, 0);
+                    ctx.rotate(Math.PI / 2);
+
+                    ctx.beginPath();
+                    ctx.arc(0, 0, imgSize / 2, 0, Math.PI * 2);
+                    ctx.clip();
+
+                    ctx.drawImage(imgObj.element, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+
+                    ctx.beginPath();
+                    ctx.arc(0, 0, imgSize / 2, 0, Math.PI * 2);
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.stroke();
+
+                    ctx.restore();
+                }
+
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 24px Fredoka';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 6;
+                ctx.fillText(`${i + 1}`, radius * 0.90, 0);
+
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        let lastSectorIndex = -1;
+
+        function spinWheel() {
+            if (isSpinning || images.length === 0) return;
+
+            getAudioContext();
+            isSpinning = true;
+            document.getElementById('spinBtnText').innerText = '...';
+
+            const numSectors = images.length;
+            const arcSize = (Math.PI * 2) / numSectors;
+
+            const randomSector = Math.floor(Math.random() * numSectors);
+            const extraRounds = 5 + Math.floor(Math.random() * 4);
+
+            const sectorCenterOffset = arcSize / 2;
+            const targetSectorAngle = randomSector * arcSize + sectorCenterOffset;
+            const targetRotation = (Math.PI * 1.5) - targetSectorAngle + (extraRounds * Math.PI * 2);
+
+            const startRotation = currentRotation % (Math.PI * 2);
+            const totalRotationDistance = targetRotation - startRotation;
+
+            const duration = 5000 + Math.random() * 1000;
+            const startTime = performance.now();
+
+            function animateSpin(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                const easeOut = 1 - Math.pow(1 - progress, 4);
+
+                currentRotation = startRotation + totalRotationDistance * easeOut;
+                drawWheel();
+
+                const normalizedRotation = (currentRotation % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+                let currentPointerAngle = (Math.PI * 1.5 - normalizedRotation + Math.PI * 2) % (Math.PI * 2);
+                let currentSector = Math.floor(currentPointerAngle / arcSize) % numSectors;
+
+                if (currentSector !== lastSectorIndex) {
+                    playTickSound();
+                    lastSectorIndex = currentSector;
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateSpin);
+                } else {
+                    isSpinning = false;
+                    document.getElementById('spinBtnText').innerText = 'SPIN!';
+                    showSelectedPlayer(randomSector);
+                }
+            }
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        // Enlarge corresponding image immediately after spinning
+        function showSelectedPlayer(index) {
+            const player = images[index];
+            if (!player) return;
+
+            playFanfare();
+
+            document.getElementById('playerTitle').innerText = player.name || `Player #${index + 1}`;
+            const playerImgElem = document.getElementById('playerImage');
+            playerImgElem.src = player.src;
+            document.getElementById('fullViewImage').src = player.src;
+
+            addHistoryRecord(player, index);
+
+            // AUTO-OPEN ENLARGED MODAL
+            const modal = document.getElementById('playerModal');
+            const card = document.getElementById('playerCard');
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            card.classList.remove('scale-90');
+            card.classList.add('scale-100');
+
+            launchConfetti();
+        }
+
+        function closePlayerModal() {
+            const modal = document.getElementById('playerModal');
+            const card = document.getElementById('playerCard');
+
+            card.classList.remove('scale-100');
+            card.classList.add('scale-90');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function openFullView() {
+            const fullModal = document.getElementById('fullViewModal');
+            fullModal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeFullView() {
+            const fullModal = document.getElementById('fullViewModal');
+            fullModal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function launchConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        function addHistoryRecord(item, index) {
+            playersHistory.unshift({
+                item,
+                index,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            });
+
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const historyList = document.getElementById('historyList');
+
+            if (playersHistory.length === 0) {
+                historyList.innerHTML = '<div id="emptyHistoryMsg" class="text-center py-8 text-gray-400 text-sm italic">No selection yet! Give the wheel a spin.</div>';
+                return;
+            }
+
+            historyList.innerHTML = playersHistory.map((record) => `
+                <div class="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <img src="${record.item.src}" class="w-10 h-10 rounded-xl object-cover border border-white/20 shrink-0">
+                        <div class="truncate">
+                            <p class="font-bold text-sm text-white truncate">${record.item.name}</p>
+                            <p class="text-[10px] text-gray-400">Slot #${record.index + 1} • ${record.time}</p>
+                        </div>
+                    </div>
+                    <button onclick="inspectHistoryImage('${record.item.src}')" class="p-2 rounded-lg text-brand-cyan hover:bg-white/10 text-xs flex items-center gap-1">
+                        <i class="fa-solid fa-expand"></i>
+                        <span>Enlarge</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function inspectHistoryImage(src) {
+            document.getElementById('fullViewImage').src = src;
+            openFullView();
+        }
+
+        function clearHistory() {
+            playersHistory = [];
+            renderHistory();
+        }
+
+        function shuffleSlots() {
+            if (isSpinning) return;
+            for (let i = images.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [images[i], images[j]] = [images[j], images[i]];
+            }
+            updateUI();
+            drawWheel();
+        }
+
+        function toggleAdminDrawer() {
+            const drawer = document.getElementById('adminDrawer');
+            const content = document.getElementById('drawerContent');
+
+            if (drawer.classList.contains('opacity-0')) {
+                drawer.classList.remove('opacity-0', 'pointer-events-none');
+                content.classList.remove('translate-x-full');
+                renderAdminGrid();
+            } else {
+                drawer.classList.add('opacity-0', 'pointer-events-none');
+                content.classList.add('translate-x-full');
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            const availableSlots = 20 - images.length;
+            const filesToProcess = files.slice(0, availableSlots > 0 ? availableSlots : 20);
+
+            if (images.length + filesToProcess.length > 20) {
+                images = [];
+            }
+
+            let loadedCount = 0;
+            filesToProcess.forEach((file, idx) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const src = event.target.result;
+                    const img = new Image();
+                    img.src = src;
+                    img.onload = () => {
+                        images.push({
+                            id: 'upload-' + Date.now() + '-' + idx,
+                            name: file.name.split('.')[0] || `Image #${images.length + 1}`,
+                            src: src,
+                            element: img
+                        });
+
+                        loadedCount++;
+                        if (loadedCount === filesToProcess.length) {
+                            updateUI();
+                            renderAdminGrid();
+                            drawWheel();
+                        }
+                    };
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function removeImage(index) {
+            images.splice(index, 1);
+            updateUI();
+            renderAdminGrid();
+            drawWheel();
+        }
+
+        function removeAllImages() {
+            images = [];
+            updateUI();
+            renderAdminGrid();
+            drawWheel();
+        }
+
+        function loadDefaultImages() {
+            images = createDefaultImages();
+            updateUI();
+            renderAdminGrid();
+            drawWheel();
+        }
+
+        function renderAdminGrid() {
+            const grid = document.getElementById('adminGrid');
+            document.getElementById('gridCountText').innerText = `${images.length} / 20 Loaded`;
+
+            if (images.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-6 text-gray-400 text-xs italic">No images present. Upload files or reset to defaults!</div>';
+                return;
+            }
+
+            grid.innerHTML = images.map((imgObj, idx) => `
+                <div class="relative group rounded-xl overflow-hidden border border-white/10 bg-white/5 p-1.5 flex flex-col items-center gap-1.5">
+                    <img src="${imgObj.src}" class="w-full h-24 object-cover rounded-lg">
+                    <div class="w-full flex items-center justify-between text-[11px] px-1">
+                        <span class="truncate font-semibold text-gray-200">#${idx + 1} ${imgObj.name}</span>
+                        <button onclick="removeImage(${idx})" class="text-red-400 hover:text-red-300 p-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateUI() {
+            document.getElementById('imageCountBadge').innerText = images.length;
+            document.getElementById('slotCounter').innerText = `${images.length} / 20`;
+        }
+
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-brand-cyan', 'bg-white/10');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-brand-cyan', 'bg-white/10');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFileSelect({ target: { files } });
+        });
+
+        window.addEventListener('resize', () => {
+            drawWheel();
+        });
+
+        window.onload = function() {
+            initImages();
+        };
+    </script>
+</body>
+</html>
